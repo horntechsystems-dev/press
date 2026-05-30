@@ -202,7 +202,7 @@ export default {
 	},
 	pageMeta() {
 		return {
-			title: `Install ${this.appDoc.title} - Frappe Cloud`,
+			title: `Install ${this.appDoc.title} - Horn Tech`,
 		};
 	},
 	components: {

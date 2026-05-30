@@ -4,7 +4,7 @@
 			<div class="flex flex-col px-4" @dblclick="redirectForFrappeioAuth">
 				<slot name="logo">
 					<div class="flex items-center space-x-2">
-						<FCLogo class="inline-block h-[38px] w-[38px]" />
+						<img src="@/assets/horntechlogo.png" class="inline-block h-[38px] w-[38px]" alt="Horn Tech" />
 					</div>
 				</slot>
 			</div>
@@ -31,14 +31,9 @@
 
 <script>
 import { toast } from 'vue-sonner';
-import FCLogo from '@/components/icons/FCLogo.vue';
-
 export default {
 	name: 'LoginBox',
 	props: ['title', 'logo', 'subtitle'],
-	components: {
-		FCLogo,
-	},
 	mounted() {
 		const params = new URLSearchParams(window.location.search);
 

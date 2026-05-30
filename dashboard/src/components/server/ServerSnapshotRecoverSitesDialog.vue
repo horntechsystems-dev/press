@@ -20,7 +20,7 @@
 						<p
 							class="rounded mb-4 p-2 text-sm text-ink-gray-7 bg-surface-gray-2 border"
 						>
-							Frappe Cloud will start temporary servers from the snapshot and
+							Horn Tech will start temporary servers from the snapshot and
 							<b>backup the selected sites from the snapshot</b>. You will be
 							able to download the backup files for next <b>48 hours</b> once
 							the recovery gets completed. <br /><br />

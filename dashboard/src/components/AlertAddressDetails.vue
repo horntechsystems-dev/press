@@ -1,7 +1,7 @@
 <template>
 	<div>
 		<AlertBanner
-			title="Please add your billing address to complete your Frappe Cloud profile."
+			title="Please add your billing address to complete your Horn Tech profile."
 			type="warning"
 		>
 			<Button

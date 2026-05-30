@@ -2,7 +2,7 @@
 	<div class="upi-autopay-form">
 		<p class="mb-6 text-p-base text-ink-gray-7">
 			Simplify your billing by authorizing
-			<strong>recurring monthly payments</strong> for your Frappe Cloud invoices
+			<strong>recurring monthly payments</strong> for your Horn Tech invoices
 			via Razorpay. Once set up, we’ll handle your future invoices
 			automatically—no manual intervention required.
 		</p>
@@ -129,7 +129,7 @@ export default {
 				order_id: orderData.order_id,
 				customer_id: orderData.customer_id,
 				recurring: '1',
-				name: 'Frappe Cloud',
+				name: 'Horn Tech',
 				description: 'UPI Autopay Authorization',
 				handler: (response) => {
 					// Keep razorpay-open until API call completes — removing it here

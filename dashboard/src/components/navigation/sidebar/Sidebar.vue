@@ -96,7 +96,7 @@ const helpDropdownOptions = [
     :class='collapsed ? " md:w-12" : "w-full md:w-[220px]"'>
 
     <div class='flex gap-2 items-center border-y md:border-0 p-2 md:p-0 -m-2 md:m-0 h-[44px] md:h-auto'>
-      <FCLogo class="size-6 md:hidden mr-auto" />
+      <img src="@/assets/horntechlogo.png" class="size-6 md:hidden mr-auto" alt="Horn Tech" />
 
       <Dropdown :options="userDropdownOptions">
         <template v-slot="{ open }">
@@ -104,12 +104,12 @@ const helpDropdownOptions = [
             class="flex gap-2 w-fit md:w-full p-1.5 items-center rounded md:mb-1 bg-surface-gray-2 md:bg-transparent   hover:bg-surface-gray-2"
             :class="[open ? 'md:bg-surface-white dark:bg-surface-gray-2 shadow-sm' : ''
               , collapsed? 'md:p-0': 'md:p-1'] ">
-            <FCLogo class="size-8 hidden md:flex shrink-0 rounded" />
+            <img src="@/assets/horntechlogo.png" class="size-8 hidden md:flex shrink-0 rounded" alt="Horn Tech" />
             <LucideUser class='size-3.5 -mr-1.5 md:hidden' />
 
             <div class="flex flex-col gap-1 ml-1 min-w-0 md:m-0" :class='collapsedCss'>
               <div class="text-base font-medium leading-none hidden md:flex text-ink-gray-9">
-                Frappe Cloud
+                Horn Tech
               </div>
 
               <div

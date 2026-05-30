@@ -41,7 +41,7 @@
 				class="mt-4"
 				type="textarea"
 				variant="outline"
-				placeholder="I am leaving Frappe Cloud because..."
+				placeholder="I am leaving Horn Tech because..."
 				size="md"
 				v-model="note"
 			/>
@@ -118,13 +118,13 @@ export default {
 	computed: {
 		options() {
 			return [
-				'Frappe Cloud is complex and difficult to use',
-				'Unable to migrate to Frappe Cloud',
+				'Horn Tech is complex and difficult to use',
+				'Unable to migrate to Horn Tech',
 				'I prefer self-hosting my instance',
 				'Poor partner experience',
 				'Missing Country Compliance App',
-				'Moved site to another Frappe Cloud account',
-				'Frappe Cloud is too expensive for me',
+				'Moved site to another Horn Tech account',
+				'Horn Tech is too expensive for me',
 				'Missing Integration App',
 				'Apps are too complex to use and setup',
 				'Payment issues',
