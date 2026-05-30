@@ -1,0 +1,156 @@
+# Copyright (c) 2019, Frappe and contributors
+# For license information, please see license.txt
+
+
+import base64
+import binascii
+import hashlib
+import re
+import shlex
+import subprocess
+
+import frappe
+from frappe import safe_decode
+from frappe.model.document import Document
+
+from press.utils import log_error
+
+
+class UserSSHCertificate(Document):
+	# begin: auto-generated types
+	# This code is auto-generated. Do not modify anything in this block.
+
+	from typing import TYPE_CHECKING
+
+	if TYPE_CHECKING:
+		from frappe.types import DF
+
+		access_server: DF.DynamicLink | None
+		all_servers: DF.Check
+		amended_from: DF.Link | None
+		certificate_details: DF.Code | None
+		reason: DF.SmallText
+		server_type: DF.Literal["Server", "Proxy Server", "Database Server"]
+		ssh_certificate: DF.Code | None
+		ssh_command: DF.Code | None
+		ssh_fingerprint: DF.Data | None
+		ssh_public_key: DF.Code | None
+		user: DF.Link
+		user_ssh_key: DF.Link
+		valid_until: DF.Datetime | None
+		validity: DF.Literal["3h", "6h", "12h", "1d"]
+	# end: auto-generated types
+
+	def validate(self):
+		if not self.ssh_public_key:
+			frappe.throw("Please make sure that a valid public key has been added in team doc.")
+
+		# check if the ssh key is valid
+		try:
+			base64.b64decode(self.ssh_public_key.strip().split()[1])
+		except binascii.Error:
+			frappe.throw("Please ensure that the attached text is a valid public key")
+
+	def before_insert(self):
+		if frappe.get_all(
+			"User SSH Certificate",
+			{
+				"user": self.user,
+				"valid_until": [">", frappe.utils.now()],
+				"access_server": self.access_server,
+				"all_servers": self.all_servers,
+				"docstatus": 1,
+			},
+		):
+			frappe.throw("A valid certificate already exists.")
+
+	def before_save(self):
+		# decode the ssh key and generate a fingerprint
+		ssh_key = self.ssh_public_key.strip().split()[1]
+		ssh_key_b64 = base64.b64decode(ssh_key)
+		sha256_sum = hashlib.sha256()
+		sha256_sum.update(ssh_key_b64)
+		self.ssh_fingerprint = safe_decode(base64.b64encode(sha256_sum.digest()))
+
+	def _set_key_type(self):
+		# extract key_type (eg: rsa, ecdsa, ed25519.) for naming convention
+		self.key_type = self.ssh_public_key.strip().split()[0].split("-")[1]
+		if not self.key_type:
+			frappe.throw("Could not guess the key type. Please check your public key.")
+
+	def before_submit(self):
+		self._set_key_type()
+		tmp_pub_file_prefix = f"/tmp/id_{self.key_type}-{self.name}"
+		tmp_pub_file = tmp_pub_file_prefix + ".pub"
+		# write the public key to a /tmp file
+		with open(tmp_pub_file, "w") as public_key:
+			public_key.write(self.ssh_public_key)
+			public_key.flush()
+
+		principal = self.get_principals()
+
+		# try generating a certificate for the /tmp key.
+		try:
+			command = f"ssh-keygen -s ca -I {self.name} -n {principal} -V +{self.validity} {tmp_pub_file}"
+			subprocess.check_output(shlex.split(command), cwd="/etc/ssh")
+		except subprocess.CalledProcessError as e:
+			log_error("SSH Certificate Generation Error", exception=e)
+			frappe.throw("Failed to generate a certificate for the specified key. Please try again.")
+		process = subprocess.Popen(
+			shlex.split(f"ssh-keygen -Lf {tmp_pub_file_prefix}-cert.pub"),
+			stdout=subprocess.PIPE,
+		)
+		self.certificate_details = safe_decode(process.communicate()[0])
+		self.set_output_fields()
+
+	def before_cancel(self):
+		self.delete_key("ssh_certificate")
+
+	def set_output_fields(self):
+		# extract the time for until when the key is active
+		regex = re.compile("Valid:.*\n")
+		self.valid_until = regex.findall(self.certificate_details)[0].strip().split()[-1]
+		self.ssh_certificate = read_certificate(self.key_type, self.name)
+		self.generate_ssh_command()
+
+	def generate_ssh_command(self):
+		server = self.access_server
+		proxy = getattr(self, "proxy", None)
+		if not server:
+			server = "<server>"
+			proxy = "<proxy>"
+
+		ssh_port = 22
+		if self.server_type == "Proxy Server" or not proxy:
+			self.ssh_command = f"ssh frappe@{server} -p {ssh_port}"
+		else:
+			self.ssh_command = f"ssh -J frappe@{proxy} frappe@{server} -p {ssh_port}"
+
+	def get_principals(self):
+		if self.all_servers:
+			return "all-servers"
+
+		if self.server_type == "Proxy Server":
+			return self.access_server
+
+		if self.server_type == "Server":
+			self.proxy = frappe.db.get_value("Server", self.access_server, "proxy_server")
+		elif self.server_type == "Database Server":
+			self.proxy = frappe.db.get_value(
+				"Server", {"status": "Active", "database_server": self.access_server}, "proxy_server"
+			)
+
+		return f"{self.proxy},{self.access_server}" if self.proxy else self.access_server
+
+
+@frappe.whitelist()
+def read_certificate(key_type, docname):
+	with open(f"/tmp/id_{key_type}-{docname}-cert.pub") as certificate:
+		try:
+			return certificate.read()
+		except Exception:
+			pass
+
+
+def set_user_ssh_key(user, ssh_public_key):
+	frappe.db.set_value("User", user, "ssh_public_key", ssh_public_key)

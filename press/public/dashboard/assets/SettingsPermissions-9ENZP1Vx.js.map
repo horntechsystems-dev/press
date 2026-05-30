@@ -1,0 +1,1 @@
+{"version":3,"file":"SettingsPermissions-9ENZP1Vx.js","names":[],"sources":["../../../../dashboard/src/components/settings/SettingsPermissions.vue"],"sourcesContent":["<template>\n\t<div class=\"p-5\">\n\t\t<router-view />\n\t</div>\n</template>\n\n<script setup></script>\n"],"mappings":"ozBACM,MAAM,MAAK,mDAAhB,EAEM,MAFN,EAEM,CADL,EAAe,EAAA,CAAA,CAAA"}

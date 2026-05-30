@@ -1,0 +1,40 @@
+---
+- name: Setup Fail2Ban
+  apt:
+    pkg: fail2ban
+    state: present
+
+- name: Enable Fail2Ban
+  service:
+    name: fail2ban
+    enabled: yes
+
+- name: Copy jail.conf to jail.local
+  copy:
+    src: /etc/fail2ban/jail.conf
+    dest: /etc/fail2ban/jail.local
+    owner: root
+    group: root
+    mode: '0644'
+    remote_src: yes
+
+- name: Setup Filters
+  template:
+    src: 'filters/{{ item }}.conf'
+    dest: '/etc/fail2ban/filter.d/{{ item }}.conf'
+  with_items:
+    - nginx
+    - nginx-spam
+
+- name: Setup Jails
+  template:
+    src: 'jails/{{ item }}.conf'
+    dest: '/etc/fail2ban/jail.d/{{ item }}.conf'
+  with_items:
+    - nginx
+    - nginx-spam
+
+- name: Restart Fail2Ban
+  service:
+    name: fail2ban
+    state: restarted

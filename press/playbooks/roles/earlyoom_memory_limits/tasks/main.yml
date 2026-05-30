@@ -1,0 +1,27 @@
+---
+- name: Install earlyoom
+  apt:
+    pkg:
+      - earlyoom
+    state: present
+  register: result
+  until: result.failed == false
+  retries: 5
+  delay: 120
+
+- name: Enable earlyoom
+  systemd:
+    name: earlyoom
+    state: started
+    enabled: yes
+
+- name: Exclude MariaDB from earlyoom
+  copy:
+    dest: /etc/default/earlyoom
+    content: |
+      EARLYOOM_ARGS="-r 3600 --avoid '(^|/)(mariadb|mysql|mariadbd|mysqld)$'"
+
+- name: Restart earlyoom
+  systemd:
+    name: earlyoom
+    state: restarted

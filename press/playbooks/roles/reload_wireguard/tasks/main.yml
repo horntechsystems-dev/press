@@ -1,0 +1,21 @@
+- name: Regenerate WireGuard config
+  template:
+    src: wg.conf
+    dest: /etc/wireguard/wg0.conf
+    owner: root
+    group: root
+    mode: '0600'
+  register: wg_config
+
+- name: Ensure WireGuard is enabled and running (with daemon reload)
+  systemd:
+    name: wg-quick@wg0
+    enabled: yes
+    state: started
+    daemon_reload: yes
+
+- name: Restart WireGuard if config changed
+  systemd:
+    name: wg-quick@wg0
+    state: restarted
+  when: wg_config.changed

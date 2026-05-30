@@ -1,0 +1,11 @@
+---
+- name: Add Primary Proxy Server Public Key to Authorized Keys
+  authorized_key:
+    user: frappe
+    key: '{{ primary_public_key }}'
+    state: present
+
+- name: Ensure agent is up and running
+  supervisorctl:
+    name: 'agent:'
+    state: started

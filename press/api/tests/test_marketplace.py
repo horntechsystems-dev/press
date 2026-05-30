@@ -1,0 +1,501 @@
+# Copyright (c) 2019, Frappe and Contributors
+# See license.txt
+
+
+from unittest.mock import Mock, patch
+
+import frappe
+import responses
+from frappe.tests.utils import FrappeTestCase
+
+from press.api.marketplace import (
+	add_app,
+	add_app_screenshot,
+	add_version,
+	become_publisher,
+	branches,
+	change_app_plan,
+	change_branch,
+	create_app_plan,
+	create_approval_request,
+	get_app,
+	get_app_audits,
+	get_apps,
+	get_apps_with_plans,
+	get_latest_approval_request,
+	get_marketplace_subscriptions_for_site,
+	get_publisher_profile_info,
+	get_subscriptions_list,
+	new_app,
+	options_for_quick_install,
+	releases,
+	remove_version,
+	reset_features_for_plan,
+	subscriptions,
+	update_app_image,
+	update_app_plan,
+	update_publisher_profile,
+)
+from press.marketplace.doctype.marketplace_app_plan.test_marketplace_app_plan import (
+	create_test_marketplace_app_plan,
+)
+from press.marketplace.doctype.marketplace_app_subscription.test_marketplace_app_subscription import (
+	create_test_marketplace_app_subscription,
+)
+from press.press.doctype.agent_job.agent_job import AgentJob
+from press.press.doctype.app.test_app import create_test_app
+from press.press.doctype.app_release.test_app_release import create_test_app_release
+from press.press.doctype.app_source.test_app_source import create_test_app_source
+from press.press.doctype.marketplace_app.test_marketplace_app import (
+	create_test_marketplace_app,
+)
+from press.press.doctype.release_group.test_release_group import (
+	create_test_release_group,
+)
+from press.press.doctype.site.test_site import create_test_bench, create_test_site
+from press.press.doctype.team.test_team import create_test_press_admin_team
+
+
+def _ensure_primary_user_in_team_members(team_name: str, user: str) -> None:
+	"""create_test_team sets Team.user only; is_user_part_of_team reads Team Member."""
+	if frappe.db.exists("Team Member", {"parenttype": "Team", "parent": team_name, "user": user}):
+		return
+	team = frappe.get_doc("Team", team_name)
+	team.append("team_members", {"user": user})
+	team.save(ignore_permissions=True)
+
+
+PAYLOAD = [
+	{
+		"name": "develop",
+		"commit": {
+			"sha": "d11768d928ec7996810898cf627c4d57e8bb917d",
+			"url": "https://api.github.com/repos/frappe/frappe/commits/d11768d928ec7996810898cf627c4d57e8bb917d",
+		},
+		"protected": True,
+	},
+	{
+		"name": "enterprise-staging",
+		"commit": {
+			"sha": "3716ef769bbb45d5376c5d6f6ed9a2d52583ef1c",
+			"url": "https://api.github.com/repos/frappe/frappe/commits/3716ef769bbb45d5376c5d6f6ed9a2d52583ef1c",
+		},
+		"protected": False,
+	},
+]
+
+
+@patch.object(AgentJob, "enqueue_http_request", new=Mock())
+class TestAPIMarketplace(FrappeTestCase):
+	def setUp(self):
+		super().setUp()
+
+		self.app = create_test_app(frappe.mock("name"), frappe.mock("name"))
+		self.team = create_test_press_admin_team()
+		self.version = "Version 14"
+		self.app_source = create_test_app_source(version=self.version, app=self.app, team=self.team.name)
+		self.app_release = create_test_app_release(self.app_source)
+		self.marketplace_app = create_test_marketplace_app(
+			app=self.app.name,
+			team=self.team.name,
+			sources=[{"version": self.version, "source": self.app_source.name}],
+		)
+		_ensure_primary_user_in_team_members(self.team.name, self.team.user)
+		self.plan_data = {
+			"price_inr": 820,
+			"price_usd": 10,
+			"plan_title": "Test Marketplace Plan",
+			"features": ["feature 1", "feature 2"],
+		}
+
+	def tearDown(self):
+		frappe.set_user("Administrator")
+		frappe.db.rollback()
+
+	def test_create_marketplace_app_plan(self):
+		frappe.set_user(self.team.user)
+		before_count = frappe.db.count("Marketplace App Plan")
+		create_app_plan(self.marketplace_app.name, self.plan_data)
+		after_count = frappe.db.count("Marketplace App Plan")
+		self.assertEqual(before_count + 1, after_count)
+
+	def test_reset_features_for_plan(self):
+		plan_doc = create_app_plan(self.marketplace_app.name, self.plan_data)
+		new_features = ["feature 3", "feature 4"]
+		reset_features_for_plan(plan_doc, new_features)
+
+		self.assertEqual([feature.description for feature in plan_doc.features], new_features)
+
+	def test_options_for_quick_install(self):
+		frappe_app = create_test_app()
+
+		frappe_source = create_test_app_source(version=self.version, app=frappe_app)
+		frappe_release = create_test_app_release(frappe_source)
+		create_test_marketplace_app(
+			app=frappe_app.name,
+			sources=[{"version": self.version, "source": frappe_source.name}],
+		)
+
+		group1 = create_test_release_group([frappe_app], frappe_version=self.version)
+		group2 = create_test_release_group([frappe_app, self.app])
+		group1.db_set("team", self.team.name)
+		group2.db_set("team", self.team.name)
+		bench1 = create_test_bench(
+			group=group1,
+			apps=[
+				{
+					"app": frappe_app.name,
+					"hash": frappe_release.hash,
+					"source": frappe_source.name,
+					"release": frappe_release.name,
+				}
+			],
+		)
+		bench2 = create_test_bench(
+			group=group2,
+			apps=[
+				{
+					"app": frappe_app.name,
+					"hash": frappe_release.hash,
+					"source": frappe_source.name,
+					"release": frappe_release.name,
+				},
+				{
+					"app": self.app.name,
+					"hash": self.app_release.hash,
+					"source": self.app_source.name,
+					"release": self.app_release.name,
+				},
+			],
+		)
+
+		create_test_site(subdomain="test1", bench=bench1.name, team=self.team.name)
+		create_test_site(subdomain="test2", bench=bench2.name, team=self.team.name)
+
+		frappe.set_user(self.team.user)
+		options = options_for_quick_install(self.app.name)
+
+		self.assertEqual(options["release_groups"][0]["name"], group1.name)
+
+	def test_add_app(self):
+		app = create_test_app("test_app", "Test App")
+		app_source = create_test_app_source(version=self.version, app=app)
+		marketplace_app = add_app(source=app_source.name, app=app.name)
+		self.assertIsNotNone(frappe.db.exists("Marketplace App", marketplace_app))
+
+	def test_add_app_already_added(self):
+		app = create_test_app("test_app3", "Test App 3")
+		app_source = create_test_app_source(version=self.version, app=app)
+		create_test_marketplace_app(
+			app=app.name,
+			team=self.team.name,
+			sources=[{"version": self.version, "source": app_source.name}],
+		)
+		new_source = create_test_app_source(version="Nightly", app=app)
+		frappe.set_user(self.team.user)
+		marketplace_app = add_app(source=new_source.name, app=app.name)
+		self.assertIsNotNone(frappe.db.exists("Marketplace App", marketplace_app))
+
+	def test_get_marketplace_subscriptions_for_site(self):
+		site = create_test_site(subdomain="test1", team=self.team.name)
+		plan = create_test_marketplace_app_plan(self.marketplace_app.name)
+		create_test_marketplace_app_subscription(
+			site=site.name, app=self.app.name, team=self.team.name, plan=plan.name
+		)
+
+		self.assertIsNotNone(get_marketplace_subscriptions_for_site(site.name))
+
+	def test_change_app_plan(self):
+		subscription = create_test_marketplace_app_subscription()
+		new_plan = create_test_marketplace_app_plan()
+		change_app_plan(subscription.name, new_plan.name)
+
+		self.assertEqual(
+			new_plan.name,
+			frappe.db.get_value("Subscription", subscription.name, "plan"),
+		)
+
+	def test_get_subscription_list(self):
+		self.assertEqual([], get_subscriptions_list("frappe"))
+		create_test_marketplace_app_subscription(app="frappe")
+		self.assertIsNotNone(get_subscriptions_list("frappe"))
+
+	def test_update_app_plan(self):
+		m_plan = create_test_marketplace_app_plan()
+
+		updated_plan_data = {
+			"price_inr": m_plan.price_inr + 100,
+			"price_usd": m_plan.price_usd + 1,
+			"title": m_plan.title + " updated",
+			"features": ["feature 3", "feature 4"],
+		}
+		update_app_plan(m_plan.name, updated_plan_data)
+		m_plan.reload()
+
+		self.assertEqual(m_plan.price_inr, updated_plan_data["price_inr"])
+		self.assertEqual(m_plan.price_usd, updated_plan_data["price_usd"])
+		self.assertEqual(m_plan.title, updated_plan_data["title"])
+		self.assertEqual(m_plan.features[0].description, updated_plan_data["features"][0])
+		self.assertEqual(m_plan.features[1].description, updated_plan_data["features"][1])
+
+	def test_become_publisher(self):
+		frappe.set_user(self.team.user)
+		become_publisher()
+		self.team.reload()
+		self.assertTrue(self.team.is_developer)
+
+	def test_get_apps(self):
+		frappe.set_user(self.team.user)
+		self.marketplace_app.db_set("team", self.team.name)
+		apps = get_apps()
+		self.assertEqual(apps[0].name, self.marketplace_app.name)
+
+	def test_get_app(self):
+		app = get_app(self.app.name)
+		self.assertEqual(app.name, self.app.name)
+
+	def test_releases(self):
+		frappe.set_user(self.team.user)
+		r = releases({"app": self.marketplace_app.name, "source": self.app_source.name})
+		self.assertEqual(r[0].name, self.app_release.name)
+
+	def test_get_app_audits_returns_audit_summaries_for_app(self):
+		audit = frappe.get_doc(
+			{
+				"doctype": "Marketplace App Audit",
+				"marketplace_app": self.marketplace_app.name,
+				"app_source": self.app_source.name,
+				"app_release": self.app_release.name,
+				"team": self.team.name,
+				"audit_type": "Manual Run",
+				"status": "Completed",
+				"audit_result": "Needs Improvement",
+			}
+		).insert()
+
+		frappe.set_user(self.team.user)
+		audits = get_app_audits(self.marketplace_app.name)
+
+		self.assertEqual(len(audits), 1)
+		self.assertEqual(audits[0].name, audit.name)
+		self.assertEqual(audits[0].app_source, self.app_source.name)
+		self.assertEqual(audits[0].app_release, self.app_release.name)
+		self.assertEqual(audits[0].audit_type, "Manual Run")
+		self.assertEqual(audits[0].audit_result, "Needs Improvement")
+		self.assertEqual(audits[0].status, "Completed")
+
+	def test_app_release_approvals(self):
+		frappe.set_user(self.team.user)
+		with patch(
+			"press.press.doctype.app_release_approval_request.app_release_approval_request.MarketplaceAppAudit.create_for_release"
+		) as create_audit:
+			create_approval_request(self.marketplace_app.name, self.app_release.name)
+		latest_approval = get_latest_approval_request(self.app_release.name)
+		self.assertIsNotNone(latest_approval)
+		create_audit.assert_called_once()
+
+	def test_new_app(self):
+		app = {
+			"name": "email_delivery_service",
+			"title": "Email Delivery Service",
+			"version": "Version 14",
+			"repository_url": "https://github.com/frappe/email_delivery_service",
+			"branch": "develop",
+			"github_installation_id": "",
+		}
+		name = new_app(app)
+		self.assertEqual(name, app["name"])
+
+	def test_get_apps_with_plans(self):
+		frappe_app = create_test_app()
+		group2 = create_test_release_group([frappe_app, self.app], frappe_version=self.version)
+		create_test_marketplace_app(
+			app=frappe_app.name,
+			sources=[{"version": self.version, "source": group2.apps[0].source}],
+		)
+		create_app_plan(frappe_app.name, self.plan_data)
+		apps = get_apps_with_plans(["frappe", self.app.name], group2.name)
+		self.assertEqual(apps[0].name, frappe_app.name)
+
+	def test_publisher_profile(self):
+		frappe.set_user(self.team.user)
+		publisher_info = {
+			"display_name": "Test Publisher",
+			"contact_email": self.team.user,
+			"website": "https://github.com",
+		}
+		update_publisher_profile(publisher_info)
+		updated_name = "Test Publisher 2"
+		update_publisher_profile({"display_name": updated_name})
+		info = get_publisher_profile_info()
+		self.assertEqual(info["profile_info"].contact_email, self.team.user)
+		self.assertEqual(info["profile_info"].display_name, updated_name)
+
+	def test_get_subscription(self):
+		site = create_test_site(subdomain="test1", team=self.team.name)
+		plan = create_test_marketplace_app_plan(self.marketplace_app.name)
+		create_test_marketplace_app_subscription(
+			site=site.name, app=self.app.name, team=self.team.name, plan=plan.name
+		)
+		frappe.set_user(self.team.user)
+		self.assertIsNotNone(subscriptions())
+
+	@patch(
+		"press.press.doctype.marketplace_app.marketplace_app.validate_frappe_version_for_branch", new=Mock()
+	)
+	def test_change_branch(self):
+		old_branch = self.app_source.branch
+		change_branch(self.marketplace_app.name, self.app_source.name, "Version 14", "develop")
+		self.app_source.reload()
+		self.assertNotEqual(old_branch, self.app_source.branch)
+
+	@patch(
+		"press.press.doctype.marketplace_app.marketplace_app.validate_frappe_version_for_branch", new=Mock()
+	)
+	def test_add_version(self):
+		old_versions = len(self.marketplace_app.sources)
+		repo_owner, repo_name = self.app_source.repository_url.rstrip("/").split("/")[-2:]
+		add_version(self.marketplace_app.name, repo_owner, repo_name, "develop", "Nightly")
+		self.marketplace_app.reload()
+		self.assertEqual(old_versions + 1, len(self.marketplace_app.sources))
+
+	@patch(
+		"press.press.doctype.marketplace_app.marketplace_app.validate_frappe_version_for_branch", new=Mock()
+	)
+	def test_remove_version(self):
+		old_versions = len(self.marketplace_app.sources)
+		repo_owner, repo_name = self.app_source.repository_url.rstrip("/").split("/")[-2:]
+		add_version(self.marketplace_app.name, repo_owner, repo_name, "develop", "Nightly")
+		remove_version(self.marketplace_app.name, "Nightly")
+		self.marketplace_app.reload()
+		self.assertEqual(old_versions, len(self.marketplace_app.sources))
+
+	@responses.activate
+	def test_branches(self):
+		frappe.set_user(self.team.user)
+		responses.get(
+			url=f"https://api.github.com/repos/{self.app_source.repository_owner}/{self.app_source.repository}/branches?per_page=100&page=1",
+			json=PAYLOAD,
+			status=200,
+			headers={},
+		)
+		results = branches(self.app_source.name)
+		self.assertEqual(len(results), 2)
+
+	def test_update_app_image_by_owner(self):
+		frappe.set_user(self.team.user)
+		_setup_fake_upload(self.marketplace_app.name)
+
+		file_url = update_app_image()
+
+		self.marketplace_app.reload()
+		self.assertTrue(file_url)
+		self.assertEqual(self.marketplace_app.image, file_url)
+
+	def test_update_app_image_blocked_for_non_owner(self):
+		other_team = create_test_press_admin_team()
+		frappe.set_user(other_team.user)
+		_setup_fake_upload(self.marketplace_app.name)
+
+		with self.assertRaises(frappe.PermissionError):
+			update_app_image()
+
+		self.marketplace_app.reload()
+		self.assertFalse(self.marketplace_app.image)
+
+	def test_update_app_image_by_owner_without_team_member_entry(self):
+		"""Regression: team owner (Team.user) must be able to upload even when absent from Team Member table."""
+		frappe.db.delete("Team Member", {"parent": self.team.name, "user": self.team.user})
+		frappe.set_user(self.team.user)
+		_setup_fake_upload(self.marketplace_app.name)
+
+		file_url = update_app_image()
+
+		self.marketplace_app.reload()
+		self.assertTrue(file_url)
+		self.assertEqual(self.marketplace_app.image, file_url)
+
+	def test_add_app_screenshot_blocked_for_non_owner(self):
+		other_team = create_test_press_admin_team()
+		frappe.set_user(other_team.user)
+		_setup_fake_upload(self.marketplace_app.name)
+
+		with self.assertRaises(frappe.PermissionError):
+			add_app_screenshot()
+
+		self.marketplace_app.reload()
+		self.assertEqual(len(self.marketplace_app.screenshots), 0)
+
+	def test_add_app_screenshot_by_owner_without_team_member_entry(self):
+		"""Regression: team owner (Team.user) must be able to upload even when absent from Team Member table."""
+		frappe.db.delete("Team Member", {"parent": self.team.name, "user": self.team.user})
+		frappe.set_user(self.team.user)
+		_setup_fake_upload(self.marketplace_app.name)
+
+		file_url = add_app_screenshot()
+
+		self.marketplace_app.reload()
+		self.assertTrue(file_url)
+		self.assertEqual(len(self.marketplace_app.screenshots), 1)
+
+	def test_update_app_image_rejects_svg(self):
+		"""SVG files can contain inline <script> tags — reject to prevent stored XSS."""
+		frappe.set_user(self.team.user)
+		_setup_fake_upload(
+			self.marketplace_app.name,
+			content=b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
+			filename="evil.svg",
+		)
+
+		with self.assertRaises(frappe.ValidationError):
+			update_app_image()
+
+		self.marketplace_app.reload()
+		self.assertFalse(self.marketplace_app.image)
+
+	def test_add_app_screenshot_rejects_svg(self):
+		"""SVG files can contain inline <script> tags — reject to prevent stored XSS."""
+		frappe.set_user(self.team.user)
+		_setup_fake_upload(
+			self.marketplace_app.name,
+			content=b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
+			filename="evil.svg",
+		)
+
+		with self.assertRaises(frappe.ValidationError):
+			add_app_screenshot()
+
+		self.marketplace_app.reload()
+		self.assertEqual(len(self.marketplace_app.screenshots), 0)
+
+	def test_add_app_screenshot_rejects_html(self):
+		"""HTML uploads are equally dangerous — reject any non-image extension."""
+		frappe.set_user(self.team.user)
+		_setup_fake_upload(
+			self.marketplace_app.name,
+			content=b"<html><body><script>alert(1)</script></body></html>",
+			filename="page.html",
+		)
+
+		with self.assertRaises(frappe.ValidationError):
+			add_app_screenshot()
+
+		self.marketplace_app.reload()
+		self.assertEqual(len(self.marketplace_app.screenshots), 0)
+
+
+def _make_test_image(size=300):
+	from io import BytesIO
+
+	from PIL import Image
+
+	buf = BytesIO()
+	Image.new("RGB", (size, size), color="red").save(buf, format="PNG")
+	return buf.getvalue()
+
+
+def _setup_fake_upload(app_name, content=None, filename=None):
+	"""Set frappe.local/form_dict fields to simulate a file upload."""
+	frappe.local.uploaded_file = content or _make_test_image()
+	frappe.local.uploaded_filename = filename or "test_image.png"
+	frappe.form_dict.docname = app_name
