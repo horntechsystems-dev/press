@@ -1,6 +1,6 @@
 <template>
 	<div class="h-screen overflow-hidden">
-		<LoginBox title="Log in to your site on Horn Tech" :subtitle="subtitle">
+		<LoginBox title="Log in to your site on HornTech" :subtitle="subtitle">
 			<template v-slot:default>
 				<div>
 					<div v-if="sitePrePicked">
@@ -203,7 +203,7 @@
 								name: 'Login',
 							}"
 						>
-							Go to Horn Tech dashboard
+							Go to HornTech dashboard
 						</router-link>
 					</div>
 				</div>

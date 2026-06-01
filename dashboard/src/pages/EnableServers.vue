@@ -6,7 +6,7 @@
 			<div class="prose prose-sm max-w-none">
 				<h1 class="text-2xl font-semibold">Servers</h1>
 				<p class="text-p-base">
-					With Servers on Horn Tech, you now get dedicated compute resources
+					With Servers on HornTech, you now get dedicated compute resources
 					for your sites. Servers come in pairs (Application + Database). You
 					can run as many sites and benches as you want. All other features
 					like Private Benches, SSH Access, Database Access work as is with

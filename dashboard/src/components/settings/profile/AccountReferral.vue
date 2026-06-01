@@ -8,10 +8,10 @@
 		<div class="flex flex-col space-y-4 overflow-hidden">
 			<ClickToCopyField :textContent="referralLink" />
 			<span class="text-sm font-medium leading-4 text-ink-gray-7">
-				Invite someone to Horn Tech and
+				Invite someone to HornTech and
 				<strong>
 					get
-					{{ creditAmountInTeamCurrency }} in Horn Tech credits</strong
+					{{ creditAmountInTeamCurrency }} in HornTech credits</strong
 				>
 				when they sign up and spend at least {{ minimumSpentAmount }}!
 			</span>

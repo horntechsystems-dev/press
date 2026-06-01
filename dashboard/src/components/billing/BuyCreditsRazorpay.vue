@@ -123,7 +123,7 @@ function processOrder(data) {
 	const options = {
 		key: data.key_id,
 		order_id: data.order_id,
-		name: "Horn Tech",
+		name: "HornTech",
 		image: "/assets/horntechlogo.png",
 		prefill: { email: team.doc?.user },
 		handler: handlePaymentSuccess,

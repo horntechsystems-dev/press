@@ -1,3 +1,3 @@
 <template>
-	<img src="@/assets/horntechlogo.png" alt="Horn Tech" />
+	<img src="@/assets/horntechlogo.png" alt="HornTech" />
 </template>

@@ -112,7 +112,7 @@ export default {
 			const options = {
 				key: data.key_id,
 				order_id: data.order_id,
-				name: "Horn Tech",
+				name: "HornTech",
 				image: "/assets/horntechlogo.png",
 				prefill: {
 					email: this.$team.doc.user,

@@ -913,7 +913,7 @@ export default {
 					return `Sign up to create your ${this.saasProduct.title} site`;
 				}
 
-				return 'Create your Horn Tech account';
+				return 'Create your HornTech account';
 			}
 		},
 		subtitle() {

@@ -6,7 +6,7 @@
 				class="flex flex-col items-center"
 				@dblclick="redirectForFrappeioAuth"
 			>
-				<img src="@/assets/horntechlogo.png" class="inline-block h-12 w-12" alt="Horn Tech" />
+				<img src="@/assets/horntechlogo.png" class="inline-block h-12 w-12" alt="HornTech" />
 			</div>
 			<!-- card -->
 			<div

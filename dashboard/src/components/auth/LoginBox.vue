@@ -4,7 +4,7 @@
 			<div class="flex flex-col px-4" @dblclick="redirectForFrappeioAuth">
 				<slot name="logo">
 					<div class="flex items-center space-x-2">
-						<img src="@/assets/horntechlogo.png" class="inline-block h-[38px] w-[38px]" alt="Horn Tech" />
+						<img src="@/assets/horntechlogo.png" class="inline-block h-[38px] w-[38px]" alt="HornTech" />
 					</div>
 				</slot>
 			</div>

@@ -95,7 +95,7 @@ const feedbackOptions = [
 	'Was just testing, not a long-term user',
 	'Missing features I needed',
 	'Setup and onboarding were too complex',
-	'Prefer self-hosting over Horn Tech',
+	'Prefer self-hosting over HornTech',
 	'Too expensive for my use case',
 	'Other',
 ].map((option) => ({ label: option, value: option }));

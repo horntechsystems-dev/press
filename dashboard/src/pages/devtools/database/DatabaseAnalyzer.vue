@@ -945,7 +945,7 @@ export default {
 				title: 'Optimize Database Tables',
 				message: tableName
 					? `Do you want to optimize the table <strong>${tableName}</strong> to reclaim space ?<br>`
-					: `Horn Tech will find tables where reclaimable space exceeds 100 MB or 20% of the table size.<br>Are you sure you want to optimize the database tables ?<br>`,
+					: `HornTech will find tables where reclaimable space exceeds 100 MB or 20% of the table size.<br>Are you sure you want to optimize the database tables ?<br>`,
 				primaryAction: {
 					label: 'Optimize',
 					variant: 'solid',

@@ -91,7 +91,7 @@ export default {
 	},
 	pageMeta() {
 		return {
-			title: `Install ${this.appDoc.title} - Horn Tech`,
+			title: `Install ${this.appDoc.title} - HornTech`,
 		};
 	},
 	components: {

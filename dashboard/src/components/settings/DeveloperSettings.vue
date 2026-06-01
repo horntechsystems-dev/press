@@ -63,7 +63,7 @@
 						<div v-else class="text-base text-ink-gray-7">
 							API key and API secret pairs can be used to access the
 							<a href="/docs/api" class="underline" target="_blank"
-								>Horn Tech API</a
+								>HornTech API</a
 							>.
 						</div>
 					</template>

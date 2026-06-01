@@ -41,7 +41,7 @@
 				class="mt-4"
 				type="textarea"
 				variant="outline"
-				placeholder="I am leaving Horn Tech because..."
+				placeholder="I am leaving HornTech because..."
 				size="md"
 				v-model="note"
 			/>
@@ -118,13 +118,13 @@ export default {
 	computed: {
 		options() {
 			return [
-				'Horn Tech is complex and difficult to use',
-				'Unable to migrate to Horn Tech',
+				'HornTech is complex and difficult to use',
+				'Unable to migrate to HornTech',
 				'I prefer self-hosting my instance',
 				'Poor partner experience',
 				'Missing Country Compliance App',
-				'Moved site to another Horn Tech account',
-				'Horn Tech is too expensive for me',
+				'Moved site to another HornTech account',
+				'HornTech is too expensive for me',
 				'Missing Integration App',
 				'Apps are too complex to use and setup',
 				'Payment issues',

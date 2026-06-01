@@ -11,7 +11,7 @@
 					class="inline-block h-12 w-12 rounded-md"
 					:src="logo"
 				/>
-				<img v-else src="@/assets/horntechlogo.png" class="inline-block h-12 w-12" alt="Horn Tech" />
+				<img v-else src="@/assets/horntechlogo.png" class="inline-block h-12 w-12" alt="HornTech" />
 			</div>
 			<!-- card -->
 			<div
